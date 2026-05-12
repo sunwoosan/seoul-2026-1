@@ -141,7 +141,7 @@ c3.metric("성장 퍼센티지", f"+{row['성장 퍼센티지']}%")
 
 
 # ──────────────────────────────────────────────────────────────
-# 기능 3. "타자수 상승률" 버튼 → 학급 전체 요약 표
+# 기능 3. "타자수 상승률" 버튼 → 학급 전체 요약 표 + (추가) 원형 그래프
 # ──────────────────────────────────────────────────────────────
 st.subheader("③ 학급 전체 상승률 요약")
 
@@ -163,3 +163,35 @@ if st.button("📊 타자수 상승률 보기", type="primary"):
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
     st.caption("🟢 +50% 이상 · 🟡 0~50% · 🔴 0% 미만 (퇴보)")
+
+    # (추가) 성장률 구간 비율 원형 그래프
+    st.markdown("#### 📌 성장률 구간 비율(원형)")
+
+    def growth_bucket(pct: float) -> str:
+        if pct >= 50:
+            return "🟢 +50% 이상"
+        if pct >= 0:
+            return "🟡 0~50%"
+        return "🔴 0% 미만"
+
+    bucket_df = df[["성장 퍼센티지"]].copy()
+    bucket_df["구간"] = bucket_df["성장 퍼센티지"].apply(growth_bucket)
+
+    counts = (
+        bucket_df["구간"]
+        .value_counts()
+        .reindex(["🟢 +50% 이상", "🟡 0~50%", "🔴 0% 미만"], fill_value=0)
+        .reset_index()
+    )
+    counts.columns = ["구간", "학생 수"]
+
+    pie = px.pie(
+        counts,
+        names="구간",
+        values="학생 수",
+        hole=0.35,
+    )
+    pie.update_traces(textposition="inside", textinfo="percent+label")
+    pie.update_layout(height=380, legend_title_text="구간")
+
+    st.plotly_chart(pie, use_container_width=True)
