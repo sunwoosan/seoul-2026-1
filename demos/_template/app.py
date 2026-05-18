@@ -9,6 +9,7 @@ CSV 파일을 업로드하면 점수 분포를 표와 그래프로 빠르게 확
 import io
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 st.set_page_config(
@@ -78,11 +79,7 @@ df = read_csv_any(uploaded)
 # 기능 1. 표 + 상단 요약
 # ──────────────────────────────────────────────────────────────
 st.subheader("① 데이터 확인")
-
-metric_col1, metric_col2 = st.columns(2)
-metric_col1.metric("응답자 수", len(df))
-metric_col2.metric("컬럼 수", len(df.columns))
-
+st.metric("응답자 수", len(df))
 st.dataframe(df, use_container_width=True, hide_index=True)
 
 
@@ -105,8 +102,16 @@ response_counts = (
 if response_counts.empty:
     st.info("선택한 문항에 표시할 응답이 없습니다.")
 else:
-    st.bar_chart(response_counts)
     response_df = response_counts.rename_axis("응답").reset_index(name="개수")
+    fig = px.bar(
+        response_df,
+        x="응답",
+        y="개수",
+        text="개수",
+        title=f"{selected_question} 응답 분포",
+    )
+    fig.update_layout(xaxis_title="응답", yaxis_title="개수")
+    st.plotly_chart(fig, use_container_width=True)
     st.dataframe(response_df, use_container_width=True, hide_index=True)
 
 
