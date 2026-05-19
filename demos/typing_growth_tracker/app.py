@@ -11,6 +11,15 @@ st.set_page_config(
     layout="wide",
 )
 
+# 배경색을 노란색으로 설정
+st.markdown("""
+    <style>
+        .stApp {
+            background-color: #FFFF99;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("⌨️ 타자 성장 트래커")
 st.caption("결과보다 성장 과정을 본다 — 학생들의 1·2·3회차 타자 속도 변화 시각화 도구")
 
