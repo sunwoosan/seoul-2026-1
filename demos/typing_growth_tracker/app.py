@@ -11,11 +11,11 @@ st.set_page_config(
     layout="wide",
 )
 
-# 배경색을 노란색으로 설정
+# 배경색을 연핑크로 설정
 st.markdown("""
     <style>
         .stApp {
-            background-color: #FFFF99;
+            background-color: #FFB6C1;
         }
     </style>
 """, unsafe_allow_html=True)
