@@ -24,7 +24,7 @@ st.title("⌨️ 타자 성장 트래커")
 st.caption("결과보다 성장 과정을 본다 — 학생들의 1·2·3회차 타자 속도 변화 시각화 도구")
 
 
-REQUIRED_COLS = ["이름", "1회차", "2회차", "3회차"]
+REQUIRED_COLS = ["이름", "종류", "1회차", "2회차", "3회차"]
 
 
 def read_csv_any(uploaded_file) -> pd.DataFrame:
@@ -44,6 +44,11 @@ def validate(df: pd.DataFrame) -> list[str]:
     if missing:
         errors.append(f"필수 컬럼 누락: {missing}. 필요한 컬럼: {REQUIRED_COLS}")
         return errors
+    
+    valid_types = ["단어", "문장", "긴글연습"]
+    if not df["종류"].isin(valid_types).all():
+        errors.append(f"종류 컬럼에 유효하지 않은 값이 있습니다. 허용 값: {valid_types}")
+    
     for col in ["1회차", "2회차", "3회차"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     if df[["1회차", "2회차", "3회차"]].isna().any().any():
@@ -60,6 +65,7 @@ with st.sidebar:
         """
         **필수 컬럼**
         - `이름` (문자열)
+        - `종류` (단어/문장/긴글연습 중 하나)
         - `1회차` (정수, 타수)
         - `2회차` (정수, 타수)
         - `3회차` (정수, 타수)
@@ -72,7 +78,7 @@ if uploaded is None:
     st.info("👈 왼쪽 사이드바에서 CSV 파일을 업로드하세요.")
     with st.expander("📑 입력 CSV 예시 보기"):
         st.code(
-            "이름,1회차,2회차,3회차\n김민준,120,145,180\n이서연,95,110,135\n...",
+            "이름,종류,1회차,2회차,3회차\n김민준,단어,120,145,180\n이서연,문장,95,110,135\n...",
             language="csv",
         )
     st.stop()
@@ -86,6 +92,9 @@ if errs:
     st.stop()
 
 df["성장 퍼센티지"] = ((df["3회차"] - df["1회차"]) / df["1회차"] * 100).round(1)
+
+# 컬럼 순서 재정렬: 이름, 종류, 1회차, 2회차, 3회차, 성장 퍼센티지
+df = df[["이름", "종류", "1회차", "2회차", "3회차", "성장 퍼센티지"]]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -155,7 +164,7 @@ c3.metric("성장 퍼센티지", f"+{row['성장 퍼센티지']}%")
 st.subheader("③ 학급 전체 상승률 요약")
 
 if st.button("📊 타자수 상승률 보기", type="primary"):
-    summary = df[["이름", "1회차", "3회차", "성장 퍼센티지"]].copy()
+    summary = df[["이름", "종류", "1회차", "3회차", "성장 퍼센티지"]].copy()
     summary = summary.sort_values("성장 퍼센티지", ascending=False).reset_index(drop=True)
     summary.insert(0, "순위", summary.index + 1)
 
