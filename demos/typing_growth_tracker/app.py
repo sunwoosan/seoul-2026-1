@@ -181,3 +181,42 @@ if st.button("📊 타자수 상승률 보기", type="primary"):
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
     st.caption("🟢 +50% 이상 · 🟡 0~50% · 🔴 0% 미만 (퇴보)")
+
+
+# ──────────────────────────────────────────────────────────────
+# 기능 4. 종류별 학생 분류 명단
+# ──────────────────────────────────────────────────────────────
+st.subheader("④ 종류별 학생 명단")
+
+categories = ["단어", "문장", "긴글연습"]
+tab_columns = st.tabs([f"📋 {cat} ({len(df[df['종류'] == cat])}명)" for cat in categories])
+
+for idx, (tab, category) in enumerate(zip(tab_columns, categories)):
+    with tab:
+        category_df = df[df["종류"] == category].sort_values("성장 퍼센티지", ascending=False).reset_index(drop=True)
+        
+        if len(category_df) == 0:
+            st.info(f"해당 카테고리에 학생이 없습니다.")
+        else:
+            display_df = category_df[["이름", "1회차", "2회차", "3회차", "성장 퍼센티지"]].copy()
+            display_df.insert(0, "순번", range(1, len(display_df) + 1))
+            
+            def color_category_growth(v):
+                if isinstance(v, (int, float)):
+                    if v >= 50:
+                        return "background-color: #d4edda; color: #155724"
+                    if v >= 0:
+                        return "background-color: #fff3cd; color: #856404"
+                    return "background-color: #f8d7da; color: #721c24"
+                return ""
+            
+            styled_display = display_df.style.map(color_category_growth, subset=["성장 퍼센티지"]).format(
+                {"성장 퍼센티지": "+{:.1f}%"}
+            )
+            st.dataframe(styled_display, use_container_width=True, hide_index=True)
+            
+            # 통계 정보
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric(f"{category} 평균 1회차", f"{category_df['1회차'].mean():.0f}타")
+            col_b.metric(f"{category} 평균 3회차", f"{category_df['3회차'].mean():.0f}타")
+            col_c.metric(f"{category} 평균 성장률", f"+{category_df['성장 퍼센티지'].mean():.1f}%")
