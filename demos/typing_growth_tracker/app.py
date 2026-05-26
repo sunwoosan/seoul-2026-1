@@ -91,7 +91,7 @@ if errs:
         st.error(e)
     st.stop()
 
-df["성장 퍼센티지"] = ((df["3회차"] - df["1회차"]) / df["1회차"] * 100).round(1)
+df["성장 퍼센티지"] = ((df["3회차"] - df["1회차"]) / df["1회차"] * 100).round(2)
 
 # 컬럼 순서 재정렬: 이름, 종류, 1회차, 2회차, 3회차, 성장 퍼센티지
 df = df[["이름", "종류", "1회차", "2회차", "3회차", "성장 퍼센티지"]]
@@ -106,7 +106,7 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("👥 응답자 수", f"{len(df)}명")
 col2.metric("📈 평균 1회차", f"{df['1회차'].mean():.0f}타")
 col3.metric("🚀 평균 3회차", f"{df['3회차'].mean():.0f}타")
-col4.metric("✨ 평균 성장률", f"+{df['성장 퍼센티지'].mean():.1f}%")
+col4.metric("✨ 평균 성장률", f"+{df['성장 퍼센티지'].mean():.2f}%")
 
 # 종류 컬럼에 색상 적용하는 함수
 def color_category(v):
@@ -119,7 +119,9 @@ def color_category(v):
     return ""
 
 # 스타일링 적용
-styled_df = df.style.map(color_category, subset=["종류"])
+styled_df = df.style.map(color_category, subset=["종류"]).format(
+    {"성장 퍼센티지": "+{:.2f}%"}
+)
 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 
@@ -167,7 +169,7 @@ st.plotly_chart(fig, use_container_width=True)
 c1, c2, c3 = st.columns(3)
 c1.metric("1회차", f"{int(row['1회차'])}타")
 c2.metric("3회차", f"{int(row['3회차'])}타", delta=f"{int(row['3회차'] - row['1회차'])}타")
-c3.metric("성장 퍼센티지", f"+{row['성장 퍼센티지']}%")
+c3.metric("성장 퍼센티지", f"+{row['성장 퍼센티지']:.2f}%")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -188,7 +190,7 @@ if st.button("📊 타자수 상승률 보기", type="primary"):
         return "background-color: #f8d7da; color: #721c24"
 
     styled = summary.style.map(color_growth, subset=["성장 퍼센티지"]).map(color_category, subset=["종류"]).format(
-        {"성장 퍼센티지": "+{:.1f}%"}
+        {"성장 퍼센티지": "+{:.2f}%"}
     )
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
@@ -223,7 +225,7 @@ for idx, (tab, category) in enumerate(zip(tab_columns, categories)):
                 return ""
             
             styled_display = display_df.style.map(color_category_growth, subset=["성장 퍼센티지"]).format(
-                {"성장 퍼센티지": "+{:.1f}%"}
+                {"성장 퍼센티지": "+{:.2f}%"}
             )
             st.dataframe(styled_display, use_container_width=True, hide_index=True)
             
@@ -231,4 +233,4 @@ for idx, (tab, category) in enumerate(zip(tab_columns, categories)):
             col_a, col_b, col_c = st.columns(3)
             col_a.metric(f"{category} 평균 1회차", f"{category_df['1회차'].mean():.0f}타")
             col_b.metric(f"{category} 평균 3회차", f"{category_df['3회차'].mean():.0f}타")
-            col_c.metric(f"{category} 평균 성장률", f"+{category_df['성장 퍼센티지'].mean():.1f}%")
+            col_c.metric(f"{category} 평균 성장률", f"+{category_df['성장 퍼센티지'].mean():.2f}%")
