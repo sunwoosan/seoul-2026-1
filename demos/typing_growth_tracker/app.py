@@ -108,7 +108,19 @@ col2.metric("📈 평균 1회차", f"{df['1회차'].mean():.0f}타")
 col3.metric("🚀 평균 3회차", f"{df['3회차'].mean():.0f}타")
 col4.metric("✨ 평균 성장률", f"+{df['성장 퍼센티지'].mean():.1f}%")
 
-st.dataframe(df, use_container_width=True, hide_index=True)
+# 종류 컬럼에 색상 적용하는 함수
+def color_category(v):
+    if v == "단어":
+        return "background-color: #90EE90; color: #000000; font-weight: bold;"
+    elif v == "문장":
+        return "background-color: #FFD700; color: #000000; font-weight: bold;"
+    elif v == "긴글연습":
+        return "background-color: #87CEEB; color: #000000; font-weight: bold;"
+    return ""
+
+# 스타일링 적용
+styled_df = df.style.map(color_category, subset=["종류"])
+st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -175,7 +187,7 @@ if st.button("📊 타자수 상승률 보기", type="primary"):
             return "background-color: #fff3cd; color: #856404"
         return "background-color: #f8d7da; color: #721c24"
 
-    styled = summary.style.map(color_growth, subset=["성장 퍼센티지"]).format(
+    styled = summary.style.map(color_growth, subset=["성장 퍼센티지"]).map(color_category, subset=["종류"]).format(
         {"성장 퍼센티지": "+{:.1f}%"}
     )
     st.dataframe(styled, use_container_width=True, hide_index=True)
