@@ -111,11 +111,11 @@ col4.metric("✨ 평균 성장률", f"+{df['성장 퍼센티지'].mean():.1f}%")
 # 종류 컬럼에 색상 적용하는 함수
 def color_category(v):
     if v == "단어":
-        return "background-color: #90EE90; color: #000000; font-weight: bold;"
+        return "background-color: #E8F5E9; color: #2E7D32; font-weight: bold;"
     elif v == "문장":
-        return "background-color: #FFD700; color: #000000; font-weight: bold;"
+        return "background-color: #FFFDE7; color: #F57C00; font-weight: bold;"
     elif v == "긴글연습":
-        return "background-color: #87CEEB; color: #000000; font-weight: bold;"
+        return "background-color: #E1F5FE; color: #0277BD; font-weight: bold;"
     return ""
 
 # 스타일링 적용
