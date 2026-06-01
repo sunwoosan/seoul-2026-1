@@ -264,7 +264,7 @@ else:
         key="below_column",
     )
 
-    threshold = 60
+    threshold = 70
     below_df = df[[name_column, selected_below_column]].copy()
     below_df[selected_below_column] = pd.to_numeric(
         below_df[selected_below_column], errors="coerce"
