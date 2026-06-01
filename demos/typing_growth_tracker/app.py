@@ -4,13 +4,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from datetime import datetime
 
 st.set_page_config(
     page_title="타자 성장 트래커",
@@ -63,135 +56,6 @@ def validate(df: pd.DataFrame) -> list[str]:
     if (df["1회차"] <= 0).any():
         errors.append("1회차에 0 또는 음수가 있어 성장률 계산이 불가능한 학생이 있습니다.")
     return errors
-
-
-def generate_pdf(df: pd.DataFrame) -> bytes:
-    """전체 결과를 PDF로 생성 (한 페이지)"""
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=10*mm, bottomMargin=10*mm, 
-                           leftMargin=10*mm, rightMargin=10*mm)
-    
-    story = []
-    styles = getSampleStyleSheet()
-    
-    # 제목
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        textColor=colors.HexColor('#2C3E50'),
-        spaceAfter=6,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-    story.append(Paragraph("⌨️ 타자 성장 트래커 - 종합 보고서", title_style))
-    
-    # 생성 날짜
-    date_style = ParagraphStyle(
-        'DateStyle',
-        parent=styles['Normal'],
-        fontSize=9,
-        textColor=colors.HexColor('#7F8C8D'),
-        alignment=TA_CENTER,
-        spaceAfter=10
-    )
-    story.append(Paragraph(f"생성일: {datetime.now().strftime('%Y년 %m월 %d일 %H:%M')}", date_style))
-    
-    # 전체 요약 메트릭
-    summary_data = [
-        ["응답자 수", "평균 1회차", "평균 2회차", "평균 3회차", "평균 성장률"],
-        [
-            f"{len(df)}명",
-            f"{df['1회차'].mean():.0f}타",
-            f"{df['2회차'].mean():.0f}타",
-            f"{df['3회차'].mean():.0f}타",
-            f"+{df['성장 퍼센티지'].mean():.2f}%"
-        ]
-    ]
-    
-    summary_table = Table(summary_data, colWidths=[25*mm, 25*mm, 25*mm, 25*mm, 25*mm])
-    summary_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FFB6D9')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-        ('TOPPADDING', (0, 0), (-1, 0), 6),
-        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#CCCCCC')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#FFFEF0'), colors.white]),
-    ]))
-    story.append(summary_table)
-    story.append(Spacer(1, 6*mm))
-    
-    # 종류별 데이터
-    categories = ["단어", "문장", "긴글연습"]
-    
-    for category in categories:
-        category_df = df[df["종류"] == category].sort_values("성장 퍼센티지", ascending=False).reset_index(drop=True)
-        
-        if len(category_df) > 0:
-            # 카테고리 제목
-            cat_style = ParagraphStyle(
-                'CatTitle',
-                parent=styles['Heading2'],
-                fontSize=11,
-                textColor=colors.white,
-                spaceAfter=4,
-                alignment=TA_CENTER,
-                fontName='Helvetica-Bold'
-            )
-            
-            if category == "단어":
-                bg_color = colors.HexColor('#2E7D32')
-            elif category == "문장":
-                bg_color = colors.HexColor('#F57C00')
-            else:
-                bg_color = colors.HexColor('#0277BD')
-            
-            # 카테고리 헤더
-            cat_header = Table([[Paragraph(f"{category} ({len(category_df)}명)", cat_style)]], 
-                              colWidths=[125*mm])
-            cat_header.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), bg_color),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-            ]))
-            story.append(cat_header)
-            
-            # 학생 데이터 테이블
-            table_data = [["순번", "이름", "1회차", "2회차", "3회차", "성장률"]]
-            for idx, (_, row) in enumerate(category_df.iterrows()):
-                table_data.append([
-                    str(idx + 1),
-                    str(row["이름"]),
-                    f"{int(row['1회차'])}",
-                    f"{int(row['2회차'])}",
-                    f"{int(row['3회차'])}",
-                    f"+{row['성장 퍼센티지']:.1f}%"
-                ])
-            
-            table = Table(table_data, colWidths=[12*mm, 25*mm, 18*mm, 18*mm, 18*mm, 20*mm])
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E8E8E8')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-                ('TOPPADDING', (0, 0), (-1, 0), 4),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#FAFAFA'), colors.white]),
-            ]))
-            story.append(table)
-            story.append(Spacer(1, 4*mm))
-    
-    # PDF 생성
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
 
 
 with st.sidebar:
@@ -370,28 +234,3 @@ for idx, (tab, category) in enumerate(zip(tab_columns, categories)):
             col_a.metric(f"{category} 평균 1회차", f"{category_df['1회차'].mean():.0f}타")
             col_b.metric(f"{category} 평균 3회차", f"{category_df['3회차'].mean():.0f}타")
             col_c.metric(f"{category} 평균 성장률", f"+{category_df['성장 퍼센티지'].mean():.2f}%")
-
-
-# ──────────────────────────────────────────────────────────────
-# 기능 5. PDF 다운로드 버튼
-# ──────────────────────────────────────────────────────────────
-st.subheader("⑤ PDF 보고서 다운로드")
-
-col_pdf_1, col_pdf_2 = st.columns([1, 3])
-with col_pdf_1:
-    if st.button("📄 PDF 생성", type="secondary"):
-        pdf_bytes = generate_pdf(df)
-        st.session_state.pdf_ready = True
-        st.session_state.pdf_data = pdf_bytes
-
-if hasattr(st.session_state, 'pdf_ready') and st.session_state.pdf_ready:
-    with col_pdf_2:
-        st.download_button(
-            label="⬇️ PDF 다운로드",
-            data=st.session_state.pdf_data,
-            file_name=f"타자성장트래커_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-            mime="application/pdf",
-            type="primary"
-        )
-    st.success("✅ PDF가 준비되었습니다. 한 페이지(가로 방향)로 모든 결과가 포함되어 있습니다.")
-    st.info("💡 **프린트 팁**: 브라우저의 인쇄 설정에서 '배경색 및 이미지' 옵션을 켜면 더 예쁘게 출력됩니다.")
