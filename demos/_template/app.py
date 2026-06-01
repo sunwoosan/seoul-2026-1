@@ -23,9 +23,12 @@ st.caption(
     "수행 평가·단원 평가 등 학급 평가 결과를 업로드하면 점수 분포를 빠르게 시각화합니다."
 )
 
+ORDERED_BANDS = ["0~59", "60~69", "70~79", "80~89", "90~100"]
+LEVEL_ORDER = ["노력요함", "보통", "잘함", "매우잘함"]
+
 
 # ──────────────────────────────────────────────────────────────
-# 공용 유틸 (수정 불필요) — 엑셀 CP949 / 메모장 UTF-8 자동 처리
+# 공용 유틸
 # ──────────────────────────────────────────────────────────────
 def read_csv_any(uploaded_file) -> pd.DataFrame:
     raw = uploaded_file.read()
@@ -115,9 +118,7 @@ st.subheader("② 점수 분포")
 if not numeric_columns:
     st.warning("선택할 수 있는 숫자형 점수 컬럼이 없습니다.")
 else:
-    selected_score_column = st.selectbox(
-        "점수 컬럼을 선택하세요.", numeric_columns
-    )
+    selected_score_column = st.selectbox("점수 컬럼을 선택하세요.", numeric_columns)
 
     score_series = pd.to_numeric(df[selected_score_column], errors="coerce").dropna()
 
@@ -127,11 +128,10 @@ else:
         score_band_df = pd.DataFrame({"점수": score_series})
         score_band_df["점수대"] = score_band_df["점수"].apply(score_band_label)
 
-        ordered_bands = ["0~59", "60~69", "70~79", "80~89", "90~100"]
         band_counts = (
             score_band_df["점수대"]
             .value_counts()
-            .reindex(ordered_bands, fill_value=0)
+            .reindex(ORDERED_BANDS, fill_value=0)
             .rename_axis("점수대")
             .reset_index(name="학생 수")
         )
@@ -161,7 +161,6 @@ if summary_button:
     else:
         stats_rows = []
         summary_rows = []
-        ordered_bands = ["0~59", "60~69", "70~79", "80~89", "90~100"]
 
         for column in numeric_columns:
             scores = pd.to_numeric(df[column], errors="coerce").dropna()
@@ -196,7 +195,7 @@ if summary_button:
         else:
             summary_df = pd.DataFrame(summary_rows)
             summary_df["점수대"] = pd.Categorical(
-                summary_df["점수대"], categories=ordered_bands, ordered=True
+                summary_df["점수대"], categories=ORDERED_BANDS, ordered=True
             )
             summary_df = summary_df.sort_values(["점수대", "문항", "점수"]).reset_index(
                 drop=True
@@ -241,18 +240,19 @@ else:
         level_df = level_df.rename(
             columns={student_id_column: "번호", selected_level_column: "점수"}
         )
-        level_df = level_df[["번호", "점수", "수준", "피드백"]].sort_values(
-            ["수준", "점수", "번호"], ascending=[True, False, True]
+        level_df = level_df[["번호", "점수", "수준", "피드백"]]
+        level_df["수준"] = pd.Categorical(
+            level_df["수준"], categories=LEVEL_ORDER, ordered=True
         )
+        level_df = level_df.sort_values(["수준", "점수", "번호"], ascending=[True, False, True])
 
         st.write("학생별 점수를 기준으로 수준을 자동 분류한 결과입니다.")
         st.dataframe(level_df, use_container_width=True, hide_index=True)
 
-        level_order = ["노력요함", "보통", "잘함", "매우잘함"]
         level_counts = (
             level_df["수준"]
             .value_counts()
-            .reindex(level_order, fill_value=0)
+            .reindex(LEVEL_ORDER, fill_value=0)
             .rename_axis("수준")
             .reset_index(name="학생 수")
         )
