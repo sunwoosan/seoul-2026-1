@@ -51,6 +51,18 @@ def score_band_label(score: float) -> str:
     return "90~100"
 
 
+def student_level_label(score: float) -> str:
+    if pd.isna(score):
+        return "미분류"
+    if score < 60:
+        return "노력요함"
+    if score < 80:
+        return "보통"
+    if score < 90:
+        return "잘함"
+    return "매우잘함"
+
+
 # ──────────────────────────────────────────────────────────────
 # 사이드바: 파일 업로더
 # ──────────────────────────────────────────────────────────────
@@ -74,6 +86,7 @@ if uploaded is None:
 
 df = read_csv_any(uploaded)
 numeric_columns = df.select_dtypes(include="number").columns.tolist()
+name_column = "이름" if "이름" in df.columns else None
 
 
 # ──────────────────────────────────────────────────────────────
@@ -186,3 +199,87 @@ if summary_button:
                 summary_df.groupby(["점수대", "문항"]).size().unstack(fill_value=0)
             )
             st.bar_chart(band_summary)
+
+
+# ──────────────────────────────────────────────────────────────
+# 기능 4. 학생 수준 분류표 자동 생성
+# ──────────────────────────────────────────────────────────────
+st.subheader("④ 학생 수준 분류표")
+
+if not numeric_columns:
+    st.warning("수준 분류에 사용할 숫자형 점수 컬럼이 없습니다.")
+elif name_column is None:
+    st.warning("학생 수준 분류표를 만들려면 `이름` 컬럼이 필요합니다.")
+else:
+    selected_level_column = st.selectbox(
+        "수준 분류에 사용할 점수 컬럼을 선택하세요.",
+        numeric_columns,
+        key="level_column",
+    )
+
+    level_df = df[[name_column, selected_level_column]].copy()
+    level_df[selected_level_column] = pd.to_numeric(
+        level_df[selected_level_column], errors="coerce"
+    )
+    level_df = level_df.dropna(subset=[selected_level_column])
+
+    if level_df.empty:
+        st.info("수준 분류에 사용할 점수 데이터가 없습니다.")
+    else:
+        level_df["수준"] = level_df[selected_level_column].apply(student_level_label)
+        level_df = level_df.rename(
+            columns={name_column: "이름", selected_level_column: "점수"}
+        )
+        level_df = level_df[["이름", "점수", "수준"]].sort_values(
+            ["수준", "점수", "이름"], ascending=[True, False, True]
+        )
+
+        st.write("학생별 점수를 기준으로 수준을 자동 분류한 결과입니다.")
+        st.dataframe(level_df, use_container_width=True, hide_index=True)
+
+        level_order = ["노력요함", "보통", "잘함", "매우잘함"]
+        level_counts = (
+            level_df["수준"]
+            .value_counts()
+            .reindex(level_order, fill_value=0)
+            .rename_axis("수준")
+            .reset_index(name="학생 수")
+        )
+        st.bar_chart(level_counts.set_index("수준"))
+
+
+# ──────────────────────────────────────────────────────────────
+# 기능 5. 기준 점수 미달 학생 목록
+# ──────────────────────────────────────────────────────────────
+st.subheader("⑤ 기준 점수 미달 학생 목록")
+
+if not numeric_columns:
+    st.warning("미달 학생 추출에 사용할 숫자형 점수 컬럼이 없습니다.")
+elif name_column is None:
+    st.warning("미달 학생 목록을 만들려면 `이름` 컬럼이 필요합니다.")
+else:
+    selected_below_column = st.selectbox(
+        "미달 학생을 찾을 점수 컬럼을 선택하세요.",
+        numeric_columns,
+        key="below_column",
+    )
+
+    threshold = 60
+    below_df = df[[name_column, selected_below_column]].copy()
+    below_df[selected_below_column] = pd.to_numeric(
+        below_df[selected_below_column], errors="coerce"
+    )
+    below_df = below_df.dropna(subset=[selected_below_column])
+    below_df = below_df[below_df[selected_below_column] < threshold]
+
+    if below_df.empty:
+        st.success(f"{threshold}점 미만 학생이 없습니다.")
+    else:
+        below_df = below_df.rename(
+            columns={name_column: "이름", selected_below_column: "점수"}
+        )
+        below_df = below_df.sort_values(["점수", "이름"], ascending=[True, True])
+
+        st.write(f"{selected_below_column}에서 {threshold}점 미만인 학생 목록입니다.")
+        st.metric("미달 학생 수", len(below_df))
+        st.dataframe(below_df, use_container_width=True, hide_index=True)
