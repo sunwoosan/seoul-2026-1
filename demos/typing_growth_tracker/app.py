@@ -4,6 +4,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import numpy as np
+from sklearn.linear_model import LinearRegression
 
 st.set_page_config(
     page_title="타자 성장 트래커",
@@ -58,6 +60,42 @@ def validate(df: pd.DataFrame) -> list[str]:
     return errors
 
 
+def predict_4th_attempt(row):
+    """선형 회귀를 이용해 4회차 예상 타자 횟수를 예측"""
+    X = np.array([1, 2, 3]).reshape(-1, 1)
+    y = np.array([row["1회차"], row["2회차"], row["3회차"]])
+    
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    prediction = model.predict([[4]])[0]
+    return max(0, prediction)  # 음수 방지
+
+
+def get_encouragement_message(growth_rate, prediction_4th, current_3rd):
+    """성장률과 예측값을 바탕으로 격려 메시지 생성"""
+    if growth_rate >= 50:
+        emoji = "🌟"
+        message = "놀라운 성장입니다!"
+    elif growth_rate >= 25:
+        emoji = "🚀"
+        message = "좋은 진전을 보이고 있어요!"
+    elif growth_rate >= 0:
+        emoji = "📈"
+        message = "계속 노력하고 있군요!"
+    else:
+        emoji = "💪"
+        message = "다음 회차에 도전해봐요!"
+    
+    increase = int(prediction_4th - current_3rd)
+    if increase > 0:
+        detail = f"지금의 속도라면 4회차에는 약 {int(prediction_4th)}타(+{increase}타)를 기대할 수 있어요!"
+    else:
+        detail = f"지금의 속도를 유지하면 4회차에는 약 {int(prediction_4th)}타를 기대할 수 있어요!"
+    
+    return emoji, message, detail
+
+
 with st.sidebar:
     st.header("📂 데이터 업로드")
     uploaded = st.file_uploader("학생 타자 기록 CSV", type=["csv"])
@@ -92,9 +130,10 @@ if errs:
     st.stop()
 
 df["성장 퍼센티지"] = ((df["3회차"] - df["1회차"]) / df["1회차"] * 100).round(2)
+df["4회차 예상"] = df.apply(predict_4th_attempt, axis=1).round(0).astype(int)
 
 # 컬럼 순서 재정렬: 이름, 종류, 1회차, 2회차, 3회차, 성장 퍼센티지
-df = df[["이름", "종류", "1회차", "2회차", "3회차", "성장 퍼센티지"]]
+df = df[["이름", "종류", "1회차", "2회차", "3회차", "성장 퍼센티지", "4회차 예상"]]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -234,3 +273,100 @@ for idx, (tab, category) in enumerate(zip(tab_columns, categories)):
             col_a.metric(f"{category} 평균 1회차", f"{category_df['1회차'].mean():.0f}타")
             col_b.metric(f"{category} 평균 3회차", f"{category_df['3회차'].mean():.0f}타")
             col_c.metric(f"{category} 평균 성장률", f"+{category_df['성장 퍼센티지'].mean():.2f}%")
+
+
+# ──────────────────────────────────────────────────────────────
+# 기능 5. 4회차 예상 타자 횟수 & 격려 메시지
+# ──────────────────────────────────────────────────────────────
+st.subheader("⑤ 🎯 4회차 예상 타자 속도 & 격려 메시지")
+
+st.markdown("**선택한 학생의 현재 성장 추세를 바탕으로 4회차 예상 타자 속도를 예측합니다.**")
+
+student_name = st.selectbox("격려 메시지를 받을 학생을 선택하세요", df["이름"].tolist(), key="encouragement_student")
+student_row = df[df["이름"] == student_name].iloc[0]
+
+emoji, message, detail = get_encouragement_message(
+    student_row["성장 퍼센티지"],
+    student_row["4회차 예상"],
+    student_row["3회차"]
+)
+
+# 격려 메시지 표시
+col_msg1, col_msg2 = st.columns([1, 3])
+with col_msg1:
+    st.markdown(f"<h1 style='text-align: center; font-size: 50px;'>{emoji}</h1>", unsafe_allow_html=True)
+with col_msg2:
+    st.markdown(f"""
+    <div style='background-color: #FFE4E1; padding: 20px; border-radius: 10px; border-left: 5px solid #FF69B4;'>
+        <h3 style='color: #C2185B; margin: 0;'>{student_name} 학생에게 드리는 말씀</h3>
+        <h2 style='color: #2C3E50; margin: 10px 0;'>{message}</h2>
+        <p style='color: #555; font-size: 16px; margin: 10px 0;'>{detail}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# 예측 데이터 표시
+st.markdown("---")
+
+col_pred1, col_pred2, col_pred3, col_pred4 = st.columns(4)
+col_pred1.metric("📊 1회차", f"{int(student_row['1회차'])}타")
+col_pred2.metric("📈 2회차", f"{int(student_row['2회차'])}타")
+col_pred3.metric("🚀 3회차", f"{int(student_row['3회차'])}타")
+col_pred4.metric("⭐ 4회차 예상", f"{int(student_row['4회차 예상'])}타")
+
+# 예측 그래프
+fig_pred = go.Figure()
+fig_pred.add_trace(
+    go.Scatter(
+        x=["1회차", "2회차", "3회차", "4회차(예상)"],
+        y=[student_row["1회차"], student_row["2회차"], student_row["3회차"], student_row["4회차 예상"]],
+        mode="lines+markers+text",
+        name=student_name,
+        text=[
+            f"{int(student_row['1회차'])}타",
+            f"{int(student_row['2회차'])}타",
+            f"{int(student_row['3회차'])}타",
+            f"{int(student_row['4회차 예상'])}타"
+        ],
+        textposition="top center",
+        line=dict(width=3, color="#FF1493"),
+        marker=dict(size=12, color=["#1f77b4", "#1f77b4", "#1f77b4", "#FFD700"]),
+        fill="tozeroy",
+        fillcolor="rgba(255, 20, 147, 0.1)"
+    )
+)
+
+fig_pred.update_layout(
+    title=f"{student_name} 학생의 예상 성장 곡선",
+    yaxis_title="타수",
+    xaxis_title="회차",
+    height=400,
+    hovermode="x unified",
+    plot_bgcolor="rgba(240, 240, 240, 0.5)",
+    paper_bgcolor="#FFE4E1",
+)
+
+st.plotly_chart(fig_pred, use_container_width=True)
+
+# 전체 학생 4회차 예상 비교표
+st.markdown("---")
+st.markdown("**📋 전체 학생 4회차 예상 타자 속도 비교**")
+
+all_prediction_df = df[["이름", "종류", "1회차", "2회차", "3회차", "4회차 예상", "성장 퍼센티지"]].copy()
+all_prediction_df = all_prediction_df.sort_values("4회차 예상", ascending=False).reset_index(drop=True)
+all_prediction_df.insert(0, "순위", range(1, len(all_prediction_df) + 1))
+
+def color_category_pred(v):
+    if v == "단어":
+        return "background-color: #E8F5E9; color: #2E7D32; font-weight: bold;"
+    elif v == "문장":
+        return "background-color: #FFFDE7; color: #F57C00; font-weight: bold;"
+    elif v == "긴글연습":
+        return "background-color: #E1F5FE; color: #0277BD; font-weight: bold;"
+    return ""
+
+styled_all_pred = all_prediction_df.style.map(color_category_pred, subset=["종류"]).format(
+    {"성장 퍼센티지": "+{:.2f}%"}
+)
+st.dataframe(styled_all_pred, use_container_width=True, hide_index=True)
+
+st.caption("💡 **예측 방식**: 1·2·3회차 데이터의 선형 추세를 바탕으로 4회차를 예측했습니다. ⭐ 표시는 예상 성장으로, 이를 목표로 노력해봅시다!")
