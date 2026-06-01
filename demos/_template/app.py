@@ -25,6 +25,7 @@ st.caption(
 
 ORDERED_BANDS = ["0~59", "60~69", "70~79", "80~89", "90~100"]
 LEVEL_ORDER = ["노력요함", "보통", "잘함", "매우잘함"]
+THRESHOLD_SCORE = 70
 
 
 # ──────────────────────────────────────────────────────────────
@@ -76,6 +77,13 @@ def feedback_message(level: str) -> str:
     return feedback_map.get(level, "피드백이 없습니다.")
 
 
+def get_score_columns(df: pd.DataFrame, student_id_column: str | None) -> list[str]:
+    numeric_columns = df.select_dtypes(include="number").columns.tolist()
+    if student_id_column in numeric_columns:
+        numeric_columns.remove(student_id_column)
+    return numeric_columns
+
+
 # ──────────────────────────────────────────────────────────────
 # 사이드바: 파일 업로더
 # ──────────────────────────────────────────────────────────────
@@ -85,11 +93,11 @@ with st.sidebar:
     st.markdown(
         """
         **예시 컬럼**
-        - `번호`
-        - `점수`
-        - `평가명`
+        - `번호` : 학생 식별용
+        - `국어`, `수학`, `점수` : 분석용 숫자형 점수 컬럼
+        - `평가명` : 참고용 문자 컬럼
 
-        학급 평가 결과 CSV를 업로드하면 점수 분포를 시각화합니다.
+        `번호`는 식별용이고, 숫자형 컬럼은 분석용으로 사용합니다.
         """
     )
 
@@ -98,8 +106,8 @@ if uploaded is None:
     st.stop()
 
 df = read_csv_any(uploaded)
-numeric_columns = df.select_dtypes(include="number").columns.tolist()
 student_id_column = "번호" if "번호" in df.columns else None
+score_columns = get_score_columns(df, student_id_column)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -109,16 +117,19 @@ st.subheader("① 데이터 확인")
 st.metric("응답자 수", len(df))
 st.dataframe(df, use_container_width=True, hide_index=True)
 
+if student_id_column is not None:
+    st.caption("`번호` 컬럼은 학생 식별용이며, 분석 대상 점수 컬럼에서는 제외됩니다.")
+
 
 # ──────────────────────────────────────────────────────────────
 # 기능 2. 점수 분포
 # ──────────────────────────────────────────────────────────────
 st.subheader("② 점수 분포")
 
-if not numeric_columns:
-    st.warning("선택할 수 있는 숫자형 점수 컬럼이 없습니다.")
+if not score_columns:
+    st.warning("선택할 수 있는 숫자형 점수 컬럼이 없습니다. `번호` 외의 숫자형 점수 컬럼을 추가해주세요.")
 else:
-    selected_score_column = st.selectbox("점수 컬럼을 선택하세요.", numeric_columns)
+    selected_score_column = st.selectbox("점수 컬럼을 선택하세요.", score_columns)
 
     score_series = pd.to_numeric(df[selected_score_column], errors="coerce").dropna()
 
@@ -156,13 +167,13 @@ st.subheader("③ 전체 요약 보기")
 summary_button = st.button("전체 요약 보기")
 
 if summary_button:
-    if not numeric_columns:
-        st.warning("요약할 숫자형 문항이 없습니다.")
+    if not score_columns:
+        st.warning("요약할 숫자형 점수 컬럼이 없습니다. `번호` 외의 숫자형 점수 컬럼을 추가해주세요.")
     else:
         stats_rows = []
         summary_rows = []
 
-        for column in numeric_columns:
+        for column in score_columns:
             scores = pd.to_numeric(df[column], errors="coerce").dropna()
 
             if not scores.empty:
@@ -201,7 +212,7 @@ if summary_button:
                 drop=True
             )
 
-            st.write("모든 숫자형 문항을 점수대별로 재배치한 결과입니다.")
+            st.write("모든 숫자형 점수 컬럼을 점수대별로 재배치한 결과입니다.")
             st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
             band_summary = (
@@ -215,14 +226,14 @@ if summary_button:
 # ──────────────────────────────────────────────────────────────
 st.subheader("④ 학생 수준 분류표")
 
-if not numeric_columns:
-    st.warning("수준 분류에 사용할 숫자형 점수 컬럼이 없습니다.")
+if not score_columns:
+    st.warning("수준 분류에 사용할 숫자형 점수 컬럼이 없습니다. `번호` 외의 숫자형 점수 컬럼을 추가해주세요.")
 elif student_id_column is None:
     st.warning("학생 수준 분류표를 만들려면 `번호` 컬럼이 필요합니다.")
 else:
     selected_level_column = st.selectbox(
         "수준 분류에 사용할 점수 컬럼을 선택하세요.",
-        numeric_columns,
+        score_columns,
         key="level_column",
     )
 
@@ -277,33 +288,32 @@ else:
 # ──────────────────────────────────────────────────────────────
 st.subheader("⑤ 기준 점수 미달 학생 목록")
 
-if not numeric_columns:
-    st.warning("미달 학생 추출에 사용할 숫자형 점수 컬럼이 없습니다.")
+if not score_columns:
+    st.warning("미달 학생 추출에 사용할 숫자형 점수 컬럼이 없습니다. `번호` 외의 숫자형 점수 컬럼을 추가해주세요.")
 elif student_id_column is None:
     st.warning("미달 학생 목록을 만들려면 `번호` 컬럼이 필요합니다.")
 else:
     selected_below_column = st.selectbox(
         "미달 학생을 찾을 점수 컬럼을 선택하세요.",
-        numeric_columns,
+        score_columns,
         key="below_column",
     )
 
-    threshold = 70
     below_df = df[[student_id_column, selected_below_column]].copy()
     below_df[selected_below_column] = pd.to_numeric(
         below_df[selected_below_column], errors="coerce"
     )
     below_df = below_df.dropna(subset=[selected_below_column])
-    below_df = below_df[below_df[selected_below_column] < threshold]
+    below_df = below_df[below_df[selected_below_column] < THRESHOLD_SCORE]
 
     if below_df.empty:
-        st.success(f"{threshold}점 미만 학생이 없습니다.")
+        st.success(f"{THRESHOLD_SCORE}점 미만 학생이 없습니다.")
     else:
         below_df = below_df.rename(
             columns={student_id_column: "번호", selected_below_column: "점수"}
         )
         below_df = below_df.sort_values(["점수", "번호"], ascending=[True, True])
 
-        st.write(f"{selected_below_column}에서 {threshold}점 미만인 학생 목록입니다.")
+        st.write(f"{selected_below_column}에서 {THRESHOLD_SCORE}점 미만인 학생 목록입니다.")
         st.metric("미달 학생 수", len(below_df))
         st.dataframe(below_df, use_container_width=True, hide_index=True)
