@@ -73,6 +73,7 @@ if uploaded is None:
     st.stop()
 
 df = read_csv_any(uploaded)
+numeric_columns = df.select_dtypes(include="number").columns.tolist()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -84,35 +85,44 @@ st.dataframe(df, use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────
-# 기능 2. 문항별 응답 분포
+# 기능 2. 점수 분포
 # ──────────────────────────────────────────────────────────────
-st.subheader("② 문항별 응답 분포")
+st.subheader("② 점수 분포")
 
-question_columns = df.columns.tolist()
-selected_question = st.selectbox("문항 이름을 선택하세요.", question_columns)
-
-response_counts = (
-    df[selected_question]
-    .fillna("(응답 없음)")
-    .astype(str)
-    .value_counts()
-    .sort_values(ascending=False)
-)
-
-if response_counts.empty:
-    st.info("선택한 문항에 표시할 응답이 없습니다.")
+if not numeric_columns:
+    st.warning("선택할 수 있는 숫자형 점수 컬럼이 없습니다.")
 else:
-    response_df = response_counts.rename_axis("응답").reset_index(name="개수")
-    fig = px.bar(
-        response_df,
-        x="응답",
-        y="개수",
-        text="개수",
-        title=f"{selected_question} 응답 분포",
+    selected_score_column = st.selectbox(
+        "점수 컬럼을 선택하세요.", numeric_columns
     )
-    fig.update_layout(xaxis_title="응답", yaxis_title="개수")
-    st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(response_df, use_container_width=True, hide_index=True)
+
+    score_series = pd.to_numeric(df[selected_score_column], errors="coerce").dropna()
+
+    if score_series.empty:
+        st.info("선택한 컬럼에 표시할 점수 데이터가 없습니다.")
+    else:
+        score_band_df = pd.DataFrame({"점수": score_series})
+        score_band_df["점수대"] = score_band_df["점수"].apply(score_band_label)
+
+        ordered_bands = ["0~59", "60~69", "70~79", "80~89", "90~100"]
+        band_counts = (
+            score_band_df["점수대"]
+            .value_counts()
+            .reindex(ordered_bands, fill_value=0)
+            .rename_axis("점수대")
+            .reset_index(name="학생 수")
+        )
+
+        fig = px.bar(
+            band_counts,
+            x="점수대",
+            y="학생 수",
+            text="학생 수",
+            title=f"{selected_score_column} 점수 분포",
+        )
+        fig.update_layout(xaxis_title="점수대", yaxis_title="학생 수")
+        st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(band_counts, use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -120,18 +130,30 @@ else:
 # ──────────────────────────────────────────────────────────────
 st.subheader("③ 전체 요약 보기")
 
-numeric_columns = df.select_dtypes(include="number").columns.tolist()
 summary_button = st.button("전체 요약 보기")
 
 if summary_button:
     if not numeric_columns:
-        st.warning("점수대로 재배치할 숫자형 문항이 없습니다.")
+        st.warning("요약할 숫자형 문항이 없습니다.")
     else:
+        stats_rows = []
         summary_rows = []
         ordered_bands = ["0~59", "60~69", "70~79", "80~89", "90~100"]
 
         for column in numeric_columns:
             scores = pd.to_numeric(df[column], errors="coerce").dropna()
+
+            if not scores.empty:
+                stats_rows.append(
+                    {
+                        "문항": column,
+                        "응답 수": len(scores),
+                        "평균": round(scores.mean(), 2),
+                        "최고점": scores.max(),
+                        "최저점": scores.min(),
+                    }
+                )
+
             for score in scores:
                 summary_rows.append(
                     {
@@ -140,6 +162,11 @@ if summary_button:
                         "점수대": score_band_label(score),
                     }
                 )
+
+        if stats_rows:
+            stats_df = pd.DataFrame(stats_rows)
+            st.write("문항별 기본 통계입니다.")
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
         if not summary_rows:
             st.info("요약할 점수 데이터가 없습니다.")
