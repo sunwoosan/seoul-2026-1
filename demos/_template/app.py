@@ -82,7 +82,7 @@ with st.sidebar:
     st.markdown(
         """
         **예시 컬럼**
-        - `이름`
+        - `번호`
         - `점수`
         - `평가명`
 
@@ -96,7 +96,7 @@ if uploaded is None:
 
 df = read_csv_any(uploaded)
 numeric_columns = df.select_dtypes(include="number").columns.tolist()
-name_column = "이름" if "이름" in df.columns else None
+student_id_column = "번호" if "번호" in df.columns else None
 
 
 # ──────────────────────────────────────────────────────────────
@@ -218,8 +218,8 @@ st.subheader("④ 학생 수준 분류표")
 
 if not numeric_columns:
     st.warning("수준 분류에 사용할 숫자형 점수 컬럼이 없습니다.")
-elif name_column is None:
-    st.warning("학생 수준 분류표를 만들려면 `이름` 컬럼이 필요합니다.")
+elif student_id_column is None:
+    st.warning("학생 수준 분류표를 만들려면 `번호` 컬럼이 필요합니다.")
 else:
     selected_level_column = st.selectbox(
         "수준 분류에 사용할 점수 컬럼을 선택하세요.",
@@ -227,7 +227,7 @@ else:
         key="level_column",
     )
 
-    level_df = df[[name_column, selected_level_column]].copy()
+    level_df = df[[student_id_column, selected_level_column]].copy()
     level_df[selected_level_column] = pd.to_numeric(
         level_df[selected_level_column], errors="coerce"
     )
@@ -239,10 +239,10 @@ else:
         level_df["수준"] = level_df[selected_level_column].apply(student_level_label)
         level_df["피드백"] = level_df["수준"].apply(feedback_message)
         level_df = level_df.rename(
-            columns={name_column: "이름", selected_level_column: "점수"}
+            columns={student_id_column: "번호", selected_level_column: "점수"}
         )
-        level_df = level_df[["이름", "점수", "수준", "피드백"]].sort_values(
-            ["수준", "점수", "이름"], ascending=[True, False, True]
+        level_df = level_df[["번호", "점수", "수준", "피드백"]].sort_values(
+            ["수준", "점수", "번호"], ascending=[True, False, True]
         )
 
         st.write("학생별 점수를 기준으로 수준을 자동 분류한 결과입니다.")
@@ -258,15 +258,15 @@ else:
         )
         st.bar_chart(level_counts.set_index("수준"))
 
-        st.write("학생 이름을 선택하면 개별 피드백을 확인할 수 있습니다.")
+        st.write("학생 번호를 선택하면 개별 피드백을 확인할 수 있습니다.")
         selected_student = st.selectbox(
-            "피드백을 확인할 학생을 선택하세요.",
-            level_df["이름"].tolist(),
+            "피드백을 확인할 학생 번호를 선택하세요.",
+            level_df["번호"].tolist(),
             key="feedback_student",
         )
 
-        selected_student_row = level_df[level_df["이름"] == selected_student].iloc[0]
-        with st.expander(f"{selected_student} 학생 피드백 보기"):
+        selected_student_row = level_df[level_df["번호"] == selected_student].iloc[0]
+        with st.expander(f"{selected_student}번 학생 피드백 보기"):
             st.write(f"**점수:** {selected_student_row['점수']}")
             st.write(f"**수준:** {selected_student_row['수준']}")
             st.info(selected_student_row["피드백"])
@@ -279,8 +279,8 @@ st.subheader("⑤ 기준 점수 미달 학생 목록")
 
 if not numeric_columns:
     st.warning("미달 학생 추출에 사용할 숫자형 점수 컬럼이 없습니다.")
-elif name_column is None:
-    st.warning("미달 학생 목록을 만들려면 `이름` 컬럼이 필요합니다.")
+elif student_id_column is None:
+    st.warning("미달 학생 목록을 만들려면 `번호` 컬럼이 필요합니다.")
 else:
     selected_below_column = st.selectbox(
         "미달 학생을 찾을 점수 컬럼을 선택하세요.",
@@ -289,7 +289,7 @@ else:
     )
 
     threshold = 70
-    below_df = df[[name_column, selected_below_column]].copy()
+    below_df = df[[student_id_column, selected_below_column]].copy()
     below_df[selected_below_column] = pd.to_numeric(
         below_df[selected_below_column], errors="coerce"
     )
@@ -300,9 +300,9 @@ else:
         st.success(f"{threshold}점 미만 학생이 없습니다.")
     else:
         below_df = below_df.rename(
-            columns={name_column: "이름", selected_below_column: "점수"}
+            columns={student_id_column: "번호", selected_below_column: "점수"}
         )
-        below_df = below_df.sort_values(["점수", "이름"], ascending=[True, True])
+        below_df = below_df.sort_values(["점수", "번호"], ascending=[True, True])
 
         st.write(f"{selected_below_column}에서 {threshold}점 미만인 학생 목록입니다.")
         st.metric("미달 학생 수", len(below_df))
