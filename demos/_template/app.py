@@ -63,6 +63,16 @@ def student_level_label(score: float) -> str:
     return "매우잘함"
 
 
+def feedback_message(level: str) -> str:
+    feedback_map = {
+        "노력요함": "교과서, 배움공책 내용을 좀 더 꼼꼼하게 복습하세요.",
+        "보통": "보통맛 학습지를 한 번 더 풀어보세요.",
+        "잘함": "매운맛 학습지를 한 번 더 풀어보세요.",
+        "매우잘함": "핵불닭맛 학습지를 풀어보세요.",
+    }
+    return feedback_map.get(level, "피드백이 없습니다.")
+
+
 # ──────────────────────────────────────────────────────────────
 # 사이드바: 파일 업로더
 # ──────────────────────────────────────────────────────────────
@@ -227,10 +237,11 @@ else:
         st.info("수준 분류에 사용할 점수 데이터가 없습니다.")
     else:
         level_df["수준"] = level_df[selected_level_column].apply(student_level_label)
+        level_df["피드백"] = level_df["수준"].apply(feedback_message)
         level_df = level_df.rename(
             columns={name_column: "이름", selected_level_column: "점수"}
         )
-        level_df = level_df[["이름", "점수", "수준"]].sort_values(
+        level_df = level_df[["이름", "점수", "수준", "피드백"]].sort_values(
             ["수준", "점수", "이름"], ascending=[True, False, True]
         )
 
@@ -246,6 +257,19 @@ else:
             .reset_index(name="학생 수")
         )
         st.bar_chart(level_counts.set_index("수준"))
+
+        st.write("학생 이름을 선택하면 개별 피드백을 확인할 수 있습니다.")
+        selected_student = st.selectbox(
+            "피드백을 확인할 학생을 선택하세요.",
+            level_df["이름"].tolist(),
+            key="feedback_student",
+        )
+
+        selected_student_row = level_df[level_df["이름"] == selected_student].iloc[0]
+        with st.expander(f"{selected_student} 학생 피드백 보기"):
+            st.write(f"**점수:** {selected_student_row['점수']}")
+            st.write(f"**수준:** {selected_student_row['수준']}")
+            st.info(selected_student_row["피드백"])
 
 
 # ──────────────────────────────────────────────────────────────
