@@ -7,6 +7,7 @@
 | 폴더 | 용도 | 누구를 위한 것 |
 |---|---|---|
 | [`typing_growth_tracker/`](typing_growth_tracker/) | **레퍼런스 데모** — 완성도 있는 예시 1개 | 모든 학생 (구현 수준의 기준점) |
+| [`miniature-palm-tree/`](miniature-palm-tree/) | **학생 프로젝트 데모** — 점심시간 장소 추천 + 미세먼지 API 연동 | 주민경(M20261517) |
 | [`_template/`](_template/) | **공통 보일러플레이트** — 빈 시작 골격 | 본인 프로젝트를 시작할 때 복사 |
 
 ---
